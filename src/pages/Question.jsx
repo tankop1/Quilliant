@@ -21,7 +21,9 @@ const GEMINI_FILES_API_URL =
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 if (!API_KEY) {
-  console.error("VITE_GEMINI_API_KEY is not set. Please create a .env file with your Gemini API key.");
+  console.error(
+    "VITE_GEMINI_API_KEY is not set. Please create a .env file with your Gemini API key."
+  );
 }
 
 function Question() {
@@ -38,9 +40,22 @@ function Question() {
   const [chatMessages, setChatMessages] = useState([]);
   const [currentEditDescription, setCurrentEditDescription] = useState("");
   const [showNotes, setShowNotes] = useState(false);
+  const [contextMenu, setContextMenu] = useState({
+    visible: false,
+    x: 0,
+    y: 0,
+    selectedText: "",
+  });
+  const [editingSelectedText, setEditingSelectedText] = useState({
+    isActive: false,
+    text: "",
+    selectionStart: 0,
+    selectionEnd: 0,
+  });
   const hasAttemptedGeneration = useRef(false);
   const answerTextareaRef = useRef(null);
   const chatMessagesRef = useRef(null);
+  const contextMenuRef = useRef(null);
 
   // Fetch personalizations and extract text content
   const fetchPersonalizations = async () => {
@@ -85,10 +100,10 @@ function Question() {
   // Extract constraints from question text and question data (page/character limits)
   // Convert pages to words (approximately 250 words per page)
   const WORDS_PER_PAGE = 250;
-  
+
   const extractConstraints = (questionText, questionData = null) => {
     const constraints = {};
-    
+
     // First, check if question has stored pageMin/pageMax from Firestore
     if (questionData) {
       if (questionData.pageMin) {
@@ -109,7 +124,7 @@ function Question() {
         constraints.pageMax = Math.ceil(questionData.wordMax / WORDS_PER_PAGE);
       }
     }
-    
+
     // Then, check question text for constraints (these override stored values if present)
     const wordMatch = questionText.match(/(\d+)\s*words?/i);
     const pageMatch = questionText.match(/(\d+)\s*pages?/i);
@@ -560,8 +575,7 @@ function Question() {
           }
         }
       } else {
-        contextText =
-          "No specific book context has been provided yet.\n\n";
+        contextText = "No specific book context has been provided yet.\n\n";
       }
 
       // Extract constraints from question
@@ -677,31 +691,36 @@ IMPORTANT: Do NOT include a chapter title or heading at the beginning of your re
       // Remove any chapter title/heading that might have been generated
       let cleanedText = generatedText.trim();
       // Remove common patterns like "Chapter X:" or "# Chapter Name" at the start
-      cleanedText = cleanedText.replace(/^(Chapter\s+\d+[:\-]?\s*)/i, '');
-      cleanedText = cleanedText.replace(/^#+\s*.+\n\n?/i, '');
+      cleanedText = cleanedText.replace(/^(Chapter\s+\d+[:\-]?\s*)/i, "");
+      cleanedText = cleanedText.replace(/^#+\s*.+\n\n?/i, "");
       // Remove standalone chapter titles on first line followed by blank line
-      const lines = cleanedText.split('\n');
-      if (lines.length > 2 && lines[0].trim() && lines[1].trim() === '') {
+      const lines = cleanedText.split("\n");
+      if (lines.length > 2 && lines[0].trim() && lines[1].trim() === "") {
         // Check if first line looks like a title (short, no punctuation at end, or ends with colon)
         const firstLine = lines[0].trim();
-        if (firstLine.length < 100 && (firstLine.endsWith(':') || !firstLine.match(/[.!?]$/))) {
-          cleanedText = lines.slice(2).join('\n').trim();
+        if (
+          firstLine.length < 100 &&
+          (firstLine.endsWith(":") || !firstLine.match(/[.!?]$/))
+        ) {
+          cleanedText = lines.slice(2).join("\n").trim();
         }
       }
 
       // Apply constraints if needed
       let finalAnswer = cleanedText;
       const words = finalAnswer.split(/\s+/);
-      
+
       // Apply word constraints
       if (constraints.maxWords && words.length > constraints.maxWords) {
         finalAnswer = words.slice(0, constraints.maxWords).join(" ");
       }
       if (constraints.minWords && words.length < constraints.minWords) {
         // If answer is too short, we can't fix it automatically, but we'll note it
-        console.warn(`Answer has ${words.length} words, but minimum is ${constraints.minWords}`);
+        console.warn(
+          `Answer has ${words.length} words, but minimum is ${constraints.minWords}`
+        );
       }
-      
+
       // Apply character constraints
       if (constraints.maxChars && finalAnswer.length > constraints.maxChars) {
         finalAnswer = finalAnswer.substring(0, constraints.maxChars);
@@ -709,7 +728,7 @@ IMPORTANT: Do NOT include a chapter title or heading at the beginning of your re
 
       console.log("Final chapter:", finalAnswer);
       setAnswer(finalAnswer);
-      
+
       // Resize textarea after setting answer
       setTimeout(() => {
         const textarea = answerTextareaRef.current;
@@ -781,7 +800,10 @@ IMPORTANT: Do NOT include a chapter title or heading at the beginning of your re
             setQuestion(questionData);
 
             // Load chat messages if they exist
-            if (questionData.chatMessages && Array.isArray(questionData.chatMessages)) {
+            if (
+              questionData.chatMessages &&
+              Array.isArray(questionData.chatMessages)
+            ) {
               setChatMessages(questionData.chatMessages);
             }
 
@@ -803,7 +825,8 @@ IMPORTANT: Do NOT include a chapter title or heading at the beginning of your re
               const personalizations = await fetchPersonalizations();
               console.log("Personalizations fetched:", personalizations.length);
               // Use description if available, otherwise use text (chapter name)
-              const chapterTopic = questionData.description || questionData.text;
+              const chapterTopic =
+                questionData.description || questionData.text;
               if (chapterTopic) {
                 console.log(
                   "Starting chapter generation for topic:",
@@ -843,32 +866,44 @@ IMPORTANT: Do NOT include a chapter title or heading at the beginning of your re
     if (!chatInput.trim()) return;
 
     const editRequest = chatInput.trim();
-    
+
     // Add user message to chat history
-    const updatedMessages = [...chatMessages, { type: "user", text: editRequest }];
+    const updatedMessages = [
+      ...chatMessages,
+      { type: "user", text: editRequest },
+    ];
     setChatMessages(updatedMessages);
-    
-    // Save chat messages to Firestore
+
+    // Save user message to Firestore immediately
     if (question?.id) {
-      updateDoc(
-        doc(db, "applications", appId, "questions", question.id),
-        { chatMessages: updatedMessages }
-      ).catch((error) => {
+      try {
+        await updateDoc(
+          doc(db, "applications", appId, "questions", question.id),
+          { chatMessages: updatedMessages }
+        );
+        console.log("User message saved to Firestore");
+      } catch (error) {
         console.error("Error saving chat messages:", error);
-      });
+      }
     }
-    
+
     // Generate a description of what we're doing
-    const editDescription = `Editing chapter based on: "${editRequest.substring(0, 50)}${editRequest.length > 50 ? '...' : ''}"`;
+    const editDescription = `Editing chapter based on: "${editRequest.substring(
+      0,
+      50
+    )}${editRequest.length > 50 ? "..." : ""}"`;
     setCurrentEditDescription(editDescription);
-    
+
     setChatInput("");
     setGenerating(true);
 
     try {
       // Fetch personalizations for context
       const personalizations = await fetchPersonalizations();
-      console.log("Personalizations fetched for editing:", personalizations.length);
+      console.log(
+        "Personalizations fetched for editing:",
+        personalizations.length
+      );
 
       // Build context from personalizations (same as generateAnswer)
       let contextText = "";
@@ -885,7 +920,9 @@ IMPORTANT: Do NOT include a chapter title or heading at the beginning of your re
             personalization.downloadURL
           ) {
             // Upload PDF to Gemini and use it as file_data
-            console.log(`\n=== Processing PDF for editing: ${personalization.name} ===`);
+            console.log(
+              `\n=== Processing PDF for editing: ${personalization.name} ===`
+            );
             const fileUri = await uploadPdfToGemini(
               personalization.downloadURL,
               personalization.name || "document.pdf",
@@ -937,8 +974,7 @@ IMPORTANT: Do NOT include a chapter title or heading at the beginning of your re
           }
         }
       } else {
-        contextText =
-          "No specific book context has been provided yet.\n\n";
+        contextText = "No specific book context has been provided yet.\n\n";
       }
 
       // Extract constraints from question
@@ -962,7 +998,20 @@ IMPORTANT: Do NOT include a chapter title or heading at the beginning of your re
       }
 
       // Build prompt for editing
-      const prompt = `${contextText}Here is the current chapter about "${questionText}":\n\n${answer || "(No chapter yet)"}\n\nUser wants to make the following change: ${editRequest}\n\nPlease edit the chapter according to the user's request, while maintaining the same tone and style.${constraintInstructions}\n\nIMPORTANT: Do NOT include a chapter title or heading. Return only the chapter text itself, starting with the first paragraph.`;
+      let prompt;
+      if (editingSelectedText.isActive) {
+        // Editing only the selected text portion
+        prompt = `${contextText}Here is the current chapter about "${questionText}":\n\n${
+          answer || "(No chapter yet)"
+        }\n\nWithin this chapter, there is a specific portion of text that needs to be edited:\n\n"${
+          editingSelectedText.text
+        }"\n\nUser wants to make the following change to ONLY this portion: ${editRequest}\n\nPlease edit ONLY this specific portion of text according to the user's request, while maintaining the same tone and style as the rest of the chapter. Return ONLY the edited version of this text portion, nothing else. Do not include any context or explanation, just the edited text.`;
+      } else {
+        // Editing the full chapter
+        prompt = `${contextText}Here is the current chapter about "${questionText}":\n\n${
+          answer || "(No chapter yet)"
+        }\n\nUser wants to make the following change: ${editRequest}\n\nPlease edit the chapter according to the user's request, while maintaining the same tone and style.${constraintInstructions}\n\nIMPORTANT: Do NOT include a chapter title or heading. Return only the chapter text itself, starting with the first paragraph.`;
+      }
 
       console.log("\n=== EDITING CHAPTER WITH AI ===");
       console.log("Edit request:", editRequest);
@@ -1029,56 +1078,84 @@ IMPORTANT: Do NOT include a chapter title or heading at the beginning of your re
       // Remove any chapter title/heading that might have been generated
       let cleanedText = generatedText.trim();
       // Remove common patterns like "Chapter X:" or "# Chapter Name" at the start
-      cleanedText = cleanedText.replace(/^(Chapter\s+\d+[:\-]?\s*)/i, '');
-      cleanedText = cleanedText.replace(/^#+\s*.+\n\n?/i, '');
+      cleanedText = cleanedText.replace(/^(Chapter\s+\d+[:\-]?\s*)/i, "");
+      cleanedText = cleanedText.replace(/^#+\s*.+\n\n?/i, "");
       // Remove standalone chapter titles on first line followed by blank line
-      const lines = cleanedText.split('\n');
-      if (lines.length > 2 && lines[0].trim() && lines[1].trim() === '') {
+      const lines = cleanedText.split("\n");
+      if (lines.length > 2 && lines[0].trim() && lines[1].trim() === "") {
         // Check if first line looks like a title (short, no punctuation at end, or ends with colon)
         const firstLine = lines[0].trim();
-        if (firstLine.length < 100 && (firstLine.endsWith(':') || !firstLine.match(/[.!?]$/))) {
-          cleanedText = lines.slice(2).join('\n').trim();
+        if (
+          firstLine.length < 100 &&
+          (firstLine.endsWith(":") || !firstLine.match(/[.!?]$/))
+        ) {
+          cleanedText = lines.slice(2).join("\n").trim();
         }
       }
 
       // Apply constraints if needed
       let finalAnswer = cleanedText;
       const words = finalAnswer.split(/\s+/);
-      
+
       // Apply word constraints
       if (constraints.maxWords && words.length > constraints.maxWords) {
         finalAnswer = words.slice(0, constraints.maxWords).join(" ");
       }
       if (constraints.minWords && words.length < constraints.minWords) {
         // If answer is too short, we can't fix it automatically, but we'll note it
-        console.warn(`Answer has ${words.length} words, but minimum is ${constraints.minWords}`);
+        console.warn(
+          `Answer has ${words.length} words, but minimum is ${constraints.minWords}`
+        );
       }
-      
+
       // Apply character constraints
       if (constraints.maxChars && finalAnswer.length > constraints.maxChars) {
         finalAnswer = finalAnswer.substring(0, constraints.maxChars);
       }
 
       console.log("Edited chapter:", finalAnswer);
-      setAnswer(finalAnswer);
-      
-      // Add success message to chat
-      const updatedMessages = [...chatMessages, { 
-        type: "assistant", 
-        text: "Chapter updated successfully." 
-      }];
-      setChatMessages(updatedMessages);
-      
-      // Save chat messages to Firestore
-      if (question?.id) {
-        updateDoc(
-          doc(db, "applications", appId, "questions", question.id),
-          { chatMessages: updatedMessages }
-        ).catch((error) => {
-          console.error("Error saving chat messages:", error);
+
+      // If editing selected text, replace only that portion
+      if (editingSelectedText.isActive) {
+        const newText =
+          answer.substring(0, editingSelectedText.selectionStart) +
+          finalAnswer +
+          answer.substring(editingSelectedText.selectionEnd);
+        setAnswer(newText);
+
+        // Clear editing mode after successful edit
+        setEditingSelectedText({
+          isActive: false,
+          text: "",
+          selectionStart: 0,
+          selectionEnd: 0,
         });
+      } else {
+        setAnswer(finalAnswer);
       }
-      
+
+      // Add success message to chat - use functional update to ensure we have the latest messages
+      setChatMessages((prevMessages) => {
+        const updatedMessages = [
+          ...prevMessages,
+          {
+            type: "assistant",
+            text: "Chapter updated successfully.",
+          },
+        ];
+
+        // Save chat messages to Firestore
+        if (question?.id) {
+          updateDoc(doc(db, "applications", appId, "questions", question.id), {
+            chatMessages: updatedMessages,
+          }).catch((error) => {
+            console.error("Error saving chat messages:", error);
+          });
+        }
+
+        return updatedMessages;
+      });
+
       // Resize textarea after setting answer
       setTimeout(() => {
         const textarea = answerTextareaRef.current;
@@ -1102,22 +1179,27 @@ IMPORTANT: Do NOT include a chapter title or heading at the beginning of your re
     } catch (error) {
       console.error("Error editing answer with AI:", error);
       console.error("Error details:", error.message);
-      // Add error message to chat
-      const updatedMessages = [...chatMessages, { 
-        type: "error", 
-        text: `Error: ${error.message}` 
-      }];
-      setChatMessages(updatedMessages);
-      
-      // Save chat messages to Firestore
-      if (question?.id) {
-        updateDoc(
-          doc(db, "applications", appId, "questions", question.id),
-          { chatMessages: updatedMessages }
-        ).catch((error) => {
-          console.error("Error saving chat messages:", error);
-        });
-      }
+      // Add error message to chat - use functional update to ensure we have the latest messages
+      setChatMessages((prevMessages) => {
+        const updatedMessages = [
+          ...prevMessages,
+          {
+            type: "error",
+            text: `Error: ${error.message}`,
+          },
+        ];
+
+        // Save chat messages to Firestore
+        if (question?.id) {
+          updateDoc(doc(db, "applications", appId, "questions", question.id), {
+            chatMessages: updatedMessages,
+          }).catch((error) => {
+            console.error("Error saving chat messages:", error);
+          });
+        }
+
+        return updatedMessages;
+      });
     } finally {
       setGenerating(false);
       setCurrentEditDescription("");
@@ -1154,6 +1236,232 @@ IMPORTANT: Do NOT include a chapter title or heading at the beginning of your re
     };
   }, [answer, loading, generating]);
 
+  // Handle text selection for context menu
+  const handleTextSelection = () => {
+    const textarea = answerTextareaRef.current;
+    if (!textarea) return;
+
+    const selectionStart = textarea.selectionStart;
+    const selectionEnd = textarea.selectionEnd;
+    const selectedText = textarea.value.substring(selectionStart, selectionEnd);
+
+    if (selectedText.trim().length > 0) {
+      // Get textarea position and styles
+      const rect = textarea.getBoundingClientRect();
+      const styles = window.getComputedStyle(textarea);
+      const textBeforeSelection = textarea.value.substring(0, selectionStart);
+      const fullText = textarea.value;
+
+      // Create a mirror div that exactly matches the textarea
+      const mirrorDiv = document.createElement("div");
+      mirrorDiv.style.position = "absolute";
+      mirrorDiv.style.top = "0";
+      mirrorDiv.style.left = "0";
+      mirrorDiv.style.visibility = "hidden";
+      mirrorDiv.style.whiteSpace = "pre-wrap";
+      mirrorDiv.style.font = styles.font;
+      mirrorDiv.style.fontSize = styles.fontSize;
+      mirrorDiv.style.fontFamily = styles.fontFamily;
+      mirrorDiv.style.lineHeight = styles.lineHeight;
+      mirrorDiv.style.padding = styles.padding;
+      mirrorDiv.style.paddingTop = styles.paddingTop;
+      mirrorDiv.style.paddingBottom = styles.paddingBottom;
+      mirrorDiv.style.paddingLeft = styles.paddingLeft;
+      mirrorDiv.style.paddingRight = styles.paddingRight;
+      mirrorDiv.style.width = `${rect.width}px`;
+      mirrorDiv.style.wordWrap = "break-word";
+      mirrorDiv.style.boxSizing = "border-box";
+      mirrorDiv.style.overflow = "visible";
+
+      // Set the full text in the mirror
+      mirrorDiv.textContent = fullText;
+      document.body.appendChild(mirrorDiv);
+
+      // Create a range to get the bounding rect of the selection
+      const range = document.createRange();
+      const textNode = mirrorDiv.firstChild;
+
+      if (textNode && textNode.nodeType === Node.TEXT_NODE) {
+        try {
+          // Set range to cover the selected text
+          range.setStart(
+            textNode,
+            Math.min(selectionStart, textNode.textContent.length)
+          );
+          range.setEnd(
+            textNode,
+            Math.min(selectionEnd, textNode.textContent.length)
+          );
+
+          // Get the bounding rectangle of the selection
+          const selectionRect = range.getBoundingClientRect();
+          const mirrorRect = mirrorDiv.getBoundingClientRect();
+
+          // Calculate the center of the selection horizontally
+          const selectionCenterX = selectionRect.left + selectionRect.width / 2;
+
+          // Calculate vertical position: selection top relative to mirror, then add textarea position
+          // The selectionRect is relative to the mirror div, so we need to adjust for the textarea's actual position
+          const selectionTopRelativeToMirror =
+            selectionRect.top - mirrorRect.top;
+
+          // Account for textarea scroll position
+          const scrollTop = textarea.scrollTop;
+
+          // Calculate actual vertical position: textarea top + selection position - scroll offset
+          const actualY =
+            rect.top + selectionTopRelativeToMirror - scrollTop - 50;
+
+          document.body.removeChild(mirrorDiv);
+
+          // Position menu centered on selection horizontally, then shift 275px to the right
+          const menuWidth = 220; // Approximate menu width
+          const x = selectionCenterX - menuWidth / 2 + 275;
+          const y = Math.max(actualY, 10); // Position above selection, but not above viewport
+
+          // Ensure menu stays within viewport bounds
+          const constrainedX = Math.max(
+            10,
+            Math.min(x, window.innerWidth - menuWidth - 10)
+          );
+
+          setContextMenu({
+            visible: true,
+            x: constrainedX,
+            y: y,
+            selectedText: selectedText,
+            selectionStart: selectionStart,
+            selectionEnd: selectionEnd,
+          });
+        } catch (error) {
+          console.error("Error calculating selection position:", error);
+          document.body.removeChild(mirrorDiv);
+          // Fallback to simple positioning
+          const menuWidth = 220;
+          const x = rect.left + 10;
+          const y = rect.top + 10;
+          setContextMenu({
+            visible: true,
+            x: Math.min(x, window.innerWidth - menuWidth - 10),
+            y: y,
+            selectedText: selectedText,
+            selectionStart: selectionStart,
+            selectionEnd: selectionEnd,
+          });
+        }
+      } else {
+        document.body.removeChild(mirrorDiv);
+        // Fallback if no text node
+        const menuWidth = 220;
+        const x = rect.left + 10;
+        const y = rect.top + 10;
+        setContextMenu({
+          visible: true,
+          x: Math.min(x, window.innerWidth - menuWidth - 10),
+          y: y,
+          selectedText: selectedText,
+          selectionStart: selectionStart,
+          selectionEnd: selectionEnd,
+        });
+      }
+    } else {
+      setContextMenu({ visible: false, x: 0, y: 0, selectedText: "" });
+    }
+  };
+
+  // Close context menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (
+        contextMenuRef.current &&
+        !contextMenuRef.current.contains(e.target) &&
+        answerTextareaRef.current &&
+        !answerTextareaRef.current.contains(e.target)
+      ) {
+        setContextMenu({ visible: false, x: 0, y: 0, selectedText: "" });
+      }
+    };
+
+    if (contextMenu.visible) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [contextMenu.visible]);
+
+  // Format selected text
+  const formatText = (format) => {
+    const textarea = answerTextareaRef.current;
+    if (!textarea || !contextMenu.selectedText) return;
+
+    const { selectionStart, selectionEnd } = contextMenu;
+    let formattedText = contextMenu.selectedText;
+
+    switch (format) {
+      case "bold":
+        formattedText = `**${contextMenu.selectedText}**`;
+        break;
+      case "italic":
+        formattedText = `*${contextMenu.selectedText}*`;
+        break;
+      case "underline":
+        formattedText = `<u>${contextMenu.selectedText}</u>`;
+        break;
+      default:
+        return;
+    }
+
+    const newText =
+      answer.substring(0, selectionStart) +
+      formattedText +
+      answer.substring(selectionEnd);
+
+    setAnswer(newText);
+    setContextMenu({ visible: false, x: 0, y: 0, selectedText: "" });
+
+    // Restore focus and set cursor position
+    setTimeout(() => {
+      textarea.focus();
+      const newCursorPos = selectionStart + formattedText.length;
+      textarea.setSelectionRange(newCursorPos, newCursorPos);
+    }, 0);
+  };
+
+  // Handle edit button - set up editing mode for selected text
+  const handleEditSelected = () => {
+    if (!contextMenu.selectedText) return;
+
+    // Set up editing mode with the selected text and its position
+    setEditingSelectedText({
+      isActive: true,
+      text: contextMenu.selectedText,
+      selectionStart: contextMenu.selectionStart,
+      selectionEnd: contextMenu.selectionEnd,
+    });
+
+    setChatInput("");
+    setContextMenu({ visible: false, x: 0, y: 0, selectedText: "" });
+
+    // Focus on AI input
+    setTimeout(() => {
+      const aiInput = document.querySelector(".ai-input");
+      if (aiInput) {
+        aiInput.focus();
+      }
+    }, 100);
+  };
+
+  // Cancel editing selected text and return to full chapter editing
+  const handleCancelEditSelected = () => {
+    setEditingSelectedText({
+      isActive: false,
+      text: "",
+      selectionStart: 0,
+      selectionEnd: 0,
+    });
+    setChatInput("");
+  };
+
   return (
     <div className="question-page">
       <main className="main-content question-main-layout">
@@ -1167,12 +1475,14 @@ IMPORTANT: Do NOT include a chapter title or heading at the beginning of your re
             <h1 className="question-title">{questionText}</h1>
             {chapterDescription && (
               <div className="notes-section">
-                <button 
+                <button
                   className="notes-toggle-button"
                   onClick={() => setShowNotes(!showNotes)}
                 >
                   <span>{showNotes ? "Hide Notes" : "Show Notes"}</span>
-                  <i className={`fa fa-chevron-${showNotes ? "up" : "down"}`}></i>
+                  <i
+                    className={`fa fa-chevron-${showNotes ? "up" : "down"}`}
+                  ></i>
                 </button>
                 {showNotes && (
                   <div className="notes-content">
@@ -1197,30 +1507,78 @@ IMPORTANT: Do NOT include a chapter title or heading at the beginning of your re
                 </div>
               ) : (
                 <>
-                  <textarea
-                    ref={answerTextareaRef}
-                    className="answer-textarea"
-                    placeholder="Your chapter will appear here. Use the AI panel on the right to generate or refine your chapter."
-                    value={answer}
-                    onChange={(e) => {
-                      setAnswer(e.target.value);
-                      
-                      // Save chapter to Firestore on change
-                      if (question?.id) {
-                        updateDoc(
-                          doc(db, "applications", appId, "questions", question.id),
-                          {
-                            answer: e.target.value,
-                          }
-                        ).catch((error) => {
-                          console.error("Error saving chapter:", error);
-                        });
-                      }
-                    }}
-                  ></textarea>
+                  <div style={{ position: "relative" }}>
+                    <textarea
+                      ref={answerTextareaRef}
+                      className="answer-textarea"
+                      placeholder="Your chapter will appear here. Use the AI panel on the right to generate or refine your chapter."
+                      value={answer}
+                      onChange={(e) => {
+                        setAnswer(e.target.value);
+
+                        // Save chapter to Firestore on change
+                        if (question?.id) {
+                          updateDoc(
+                            doc(
+                              db,
+                              "applications",
+                              appId,
+                              "questions",
+                              question.id
+                            ),
+                            {
+                              answer: e.target.value,
+                            }
+                          ).catch((error) => {
+                            console.error("Error saving chapter:", error);
+                          });
+                        }
+                      }}
+                      onMouseUp={handleTextSelection}
+                      onKeyUp={handleTextSelection}
+                    ></textarea>
+                    {contextMenu.visible && (
+                      <div
+                        ref={contextMenuRef}
+                        className="text-context-menu"
+                        style={{
+                          position: "fixed",
+                          left: `${contextMenu.x}px`,
+                          top: `${contextMenu.y}px`,
+                          zIndex: 1000,
+                        }}
+                      >
+                        <button
+                          className="context-menu-button"
+                          onClick={handleEditSelected}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="context-menu-button"
+                          onClick={() => formatText("bold")}
+                        >
+                          <strong>B</strong>
+                        </button>
+                        <button
+                          className="context-menu-button"
+                          onClick={() => formatText("italic")}
+                        >
+                          <em>I</em>
+                        </button>
+                        <button
+                          className="context-menu-button"
+                          onClick={() => formatText("underline")}
+                        >
+                          <u>U</u>
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   <div className="answer-counter">
                     <span className="counter-item">
-                      {answer.trim() ? answer.trim().split(/\s+/).length : 0} words
+                      {answer.trim() ? answer.trim().split(/\s+/).length : 0}{" "}
+                      words
                     </span>
                     <span className="counter-item">
                       {answer.length} characters
@@ -1235,7 +1593,10 @@ IMPORTANT: Do NOT include a chapter title or heading at the beginning of your re
         <div className="ai-panel">
           <div className="ai-panel-messages" ref={chatMessagesRef}>
             {chatMessages.map((message, index) => (
-              <div key={index} className={`ai-message ai-message-${message.type || 'user'}`}>
+              <div
+                key={index}
+                className={`ai-message ai-message-${message.type || "user"}`}
+              >
                 <div className="ai-message-content">{message.text}</div>
               </div>
             ))}
@@ -1243,11 +1604,32 @@ IMPORTANT: Do NOT include a chapter title or heading at the beginning of your re
               <div className="ai-message ai-message-loading">
                 <div className="ai-loading-indicator">
                   <i className="fa fa-spinner fa-spin ai-loading-spinner-icon"></i>
-                  <span className="ai-loading-text">{currentEditDescription || "Processing your request..."}</span>
+                  <span className="ai-loading-text">
+                    {currentEditDescription || "Processing your request..."}
+                  </span>
                 </div>
               </div>
             )}
           </div>
+          {editingSelectedText.isActive && (
+            <div className="editing-selected-indicator">
+              <div className="editing-selected-content">
+                <span className="editing-selected-label">Editing:</span>
+                <span className="editing-selected-text">
+                  {editingSelectedText.text.length > 100
+                    ? editingSelectedText.text.substring(0, 100) + "..."
+                    : editingSelectedText.text}
+                </span>
+              </div>
+              <button
+                className="editing-selected-close"
+                onClick={handleCancelEditSelected}
+                type="button"
+              >
+                <i className="fa fa-times"></i>
+              </button>
+            </div>
+          )}
           <div className="ai-panel-input">
             <form className="ai-input-form" onSubmit={handleSubmit}>
               <textarea
@@ -1264,7 +1646,11 @@ IMPORTANT: Do NOT include a chapter title or heading at the beginning of your re
                 disabled={generating}
                 rows={4}
               />
-              <button type="submit" className="ai-send-button" disabled={!chatInput.trim() || generating}>
+              <button
+                type="submit"
+                className="ai-send-button"
+                disabled={!chatInput.trim() || generating}
+              >
                 <i className="fa fa-arrow-up"></i>
               </button>
             </form>
