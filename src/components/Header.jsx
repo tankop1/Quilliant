@@ -10,10 +10,17 @@ function Header() {
   const { user, signInWithGoogle, logout } = useAuth();
   const personalizeButtonRef = useRef(null);
   const writeButtonRef = useRef(null);
+  const previewButtonRef = useRef(null);
   const sliderRef = useRef(null);
   const [sliderStyle, setSliderStyle] = useState({});
 
-  const currentPage = location.pathname.startsWith("/write") ? "write" : "personalize";
+  const getCurrentPage = () => {
+    if (location.pathname.startsWith("/write")) return "write";
+    if (location.pathname.startsWith("/preview")) return "preview";
+    return "personalize";
+  };
+
+  const currentPage = getCurrentPage();
 
   const handleAuthClick = async () => {
     if (user) {
@@ -29,10 +36,14 @@ function Header() {
 
   useEffect(() => {
     const updateSliderPosition = () => {
-      const activeButton =
-        currentPage === "personalize"
-          ? personalizeButtonRef.current
-          : writeButtonRef.current;
+      let activeButton = null;
+      if (currentPage === "personalize") {
+        activeButton = personalizeButtonRef.current;
+      } else if (currentPage === "write") {
+        activeButton = writeButtonRef.current;
+      } else if (currentPage === "preview") {
+        activeButton = previewButtonRef.current;
+      }
 
       if (activeButton && sliderRef.current) {
         const buttonRect = activeButton.getBoundingClientRect();
@@ -88,6 +99,14 @@ function Header() {
         >
           <i className="far fa-pen-to-square"></i>
           <span>Write</span>
+        </button>
+        <button
+          ref={previewButtonRef}
+          className={`nav-button ${currentPage === "preview" ? "active" : ""}`}
+          onClick={() => navigate("/preview")}
+        >
+          <i className="far fa-eye"></i>
+          <span>Preview</span>
         </button>
       </div>
 

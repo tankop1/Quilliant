@@ -11,6 +11,17 @@
   background-color: #ffffff;
 }
 
+.preview-page {
+  width: 100%;
+  min-height: 100vh;
+  background-color: #f5f5f5;
+}
+
+.preview-page .main-content {
+  padding-top: 80px;
+  background-color: #f5f5f5;
+}
+
 .header {
   display: flex;
   align-items: center;
@@ -1273,6 +1284,11 @@
   font-size: 12px;
 }
 
+.question-actions-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
 .question-page {
   width: 100%;
   min-height: 100vh;
@@ -1281,13 +1297,24 @@
   flex-direction: column;
 }
 
+.question-main-layout {
+  display: flex;
+  flex-direction: row;
+  min-height: calc(100vh - 64px);
+  padding-top: 64px;
+  align-items: flex-start;
+}
+
 .question-container {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 40px 24px 120px 24px;
   flex: 1;
+  overflow: visible;
+  padding: 40px 24px 40px 24px;
   display: flex;
   flex-direction: column;
+  max-width: 700px;
+  margin: 0 auto;
+  margin-right: calc(380px + 170px);
+  width: 100%;
 }
 
 .back-button {
@@ -1336,18 +1363,75 @@
   font-size: 28px;
   font-weight: 600;
   color: #000000;
-  margin: 0;
+  margin: 0 0 8px 0;
   letter-spacing: -0.02em;
   line-height: 1.3;
 }
 
+.notes-section {
+  margin-top: 12px;
+}
+
+.notes-toggle-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  background-color: #ffffff;
+  color: #666666;
+  font-family: "DM Sans", sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.notes-toggle-button:hover {
+  background-color: #f5f5f5;
+  border-color: #d0d0d0;
+}
+
+.notes-toggle-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
+}
+
+.notes-toggle-button i {
+  font-size: 10px;
+  transition: transform 0.2s ease;
+}
+
+.notes-content {
+  margin-top: 12px;
+  padding: 12px;
+  background-color: #f9f9f9;
+  border-radius: 6px;
+  border: 1px solid #f0f0f0;
+}
+
+.question-description {
+  font-family: "DM Sans", sans-serif;
+  font-size: 12px;
+  color: #666666;
+  line-height: 1.5;
+  margin: 0;
+}
+
 .answer-section {
   flex: 1;
-  margin-bottom: 24px;
+  margin-bottom: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 200px);
 }
 
 .answer-editor {
   width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .answer-counter {
@@ -1368,7 +1452,7 @@
 
 .answer-textarea {
   width: 100%;
-  min-height: 200px;
+  min-height: calc(100vh - 250px);
   padding: 20px 0;
   border: none;
   background-color: transparent;
@@ -1379,7 +1463,15 @@
   resize: none;
   overflow: hidden;
   outline: none;
-  transition: height 0.2s ease;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  box-sizing: border-box;
+}
+
+.answer-textarea::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .answer-skeleton {
@@ -1416,54 +1508,155 @@
   color: #999999;
 }
 
-.chatbot-section {
+/* AI Panel Styles (Cursor-like) */
+.ai-panel {
+  width: 380px;
+  background-color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 112px);
+  max-height: calc(100vh - 112px);
   position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background-color: #ffffff;
-  padding: 16px 24px;
-  z-index: 50;
-}
-
-.chatbot-container {
-  max-width: 600px;
-  margin: 0 auto;
-}
-
-.chatbot-form {
-  position: relative;
-  padding: 16px;
-  height: 100px;
-  border: none;
+  top: 80px;
+  right: 16px;
   border-radius: 16px;
-  background-color: #ffffff;
   box-shadow: 0 0 15px rgba(0, 0, 0, 0.15);
-  transition: all 0.2s ease;
+  margin: 16px 0;
+  overflow: hidden;
+  flex-shrink: 0;
 }
 
-.chatbot-input {
-  width: 100%;
-  height: 100%;
+.ai-panel-messages {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   border: none;
-  background-color: transparent;
-  font-family: "DM Sans", sans-serif;
-  font-size: 14px;
-  color: #000000;
-  outline: none;
-  padding: 0;
-  padding-right: 50px;
-  resize: none;
+  min-height: 0;
 }
 
-.chatbot-input::placeholder {
+.ai-message {
+  display: flex;
+  flex-direction: column;
+}
+
+.ai-message-user {
+  align-items: flex-end;
+}
+
+.ai-message-loading {
+  align-items: flex-start;
+}
+
+.ai-message-error {
+  align-items: flex-start;
+}
+
+.ai-message-content {
+  max-width: 85%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-family: "DM Sans", sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  word-wrap: break-word;
+}
+
+.ai-message-user .ai-message-content {
+  background-color: #000000;
+  color: #ffffff;
+  border-radius: 16px;
+}
+
+.ai-message-error .ai-message-content {
+  background-color: #fee;
+  color: #c33;
+  border-bottom-left-radius: 4px;
+  border: 1px solid #fcc;
+}
+
+.ai-message-loading .ai-message-content {
+  background-color: transparent;
+  padding: 0;
+}
+
+.ai-loading-indicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background-color: #f5f5f5;
+  border-radius: 12px;
+  border-bottom-left-radius: 4px;
+}
+
+.ai-loading-spinner {
+  display: none;
+}
+
+.ai-loading-spinner-icon {
+  font-size: 16px;
+  color: #0066cc;
+}
+
+.ai-loading-text {
+  font-family: "DM Sans", sans-serif;
+  font-size: 13px;
+  color: #666666;
+  line-height: 1.5;
+}
+
+.ai-panel-input {
+  padding: 16px 20px;
+  flex-shrink: 0;
+  background-color: #ffffff;
+  border: none;
+}
+
+.ai-input-form {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+}
+
+.ai-input {
+  width: 100%;
+  border: 1px solid #e0e0e0;
+  border-radius: 16px;
+  padding: 12px 50px 12px 14px;
+  font-family: "DM Sans", sans-serif;
+  font-size: 13px;
+  color: #000000;
+  background-color: #ffffff;
+  resize: none;
+  outline: none;
+  transition: all 0.2s ease;
+  line-height: 1.5;
+  height: 100px;
+  min-height: 100px;
+}
+
+.ai-input:focus {
+  border-color: #0066cc;
+  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+}
+
+.ai-input::placeholder {
   color: #999999;
 }
 
-.chatbot-send-button {
+.ai-input:disabled {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
+}
+
+.ai-send-button {
   position: absolute;
-  bottom: 12px;
-  right: 12px;
+  bottom: 10px;
+  right: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1476,16 +1669,592 @@
   cursor: pointer;
   transition: all 0.2s ease;
   outline: none;
+  flex-shrink: 0;
 }
 
-.chatbot-send-button:hover {
+.ai-send-button:hover:not(:disabled) {
   background-color: #333333;
 }
 
-.chatbot-send-button:focus {
+.ai-send-button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+.ai-send-button i {
+  font-size: 12px;
+}
+
+/* Responsive styles for AI panel */
+@media (max-width: 1024px) {
+  .question-main-layout {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .question-container {
+    max-width: 100%;
+    padding-bottom: 24px;
+  }
+
+  .ai-panel {
+    width: calc(100% - 32px);
+    height: 400px;
+    position: fixed;
+    bottom: 16px;
+    left: 16px;
+    right: 16px;
+    z-index: 100;
+    margin: 0;
+  }
+}
+
+/* Preview Page Styles */
+.preview-container {
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.preview-header {
+  text-align: center;
+  margin-bottom: 32px;
+  padding: 0 24px;
+}
+
+.preview-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #000000;
+  margin-bottom: 8px;
+}
+
+.preview-description {
+  font-size: 14px;
+  color: #666666;
+}
+
+/* Kindle Book Styles */
+.kindle-book {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: #f5f5f5;
+  min-height: calc(100vh - 80px);
+  padding: 20px 20px 40px 20px;
+}
+
+.kindle-page {
+  width: 100%;
+  max-width: 600px;
+  min-height: 800px;
+  background-color: #ffffff;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  page-break-after: always;
+  position: relative;
+}
+
+/* Cover Page */
+.kindle-cover-page {
+  padding: 0;
+  position: relative;
+  min-height: 800px;
+  height: 800px;
+}
+
+.cover-page-image-full {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+}
+
+.cover-page-image-full img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cover-upload-placeholder-full {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background-color: #f5f5f5;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cover-upload-placeholder-full:hover {
+  background-color: #eeeeee;
+}
+
+.cover-upload-placeholder-full i {
+  font-size: 64px;
+  color: #999999;
+}
+
+.cover-upload-placeholder-full p {
+  font-family: "DM Sans", sans-serif;
+  font-size: 18px;
+  color: #666666;
+  margin: 0;
+}
+
+.cover-edit-button {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-family: "DM Sans", sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 10;
+}
+
+.cover-edit-button:hover {
+  background-color: rgba(0, 0, 0, 0.9);
+}
+
+/* Title Page */
+.kindle-title-page {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 60px 50px;
+  text-align: center;
+}
+
+.title-page-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+.title-page-input {
+  width: 100%;
+  max-width: 600px;
+  padding: 0;
+  border: none;
+  font-family: "DM Sans", sans-serif;
+  font-size: 36px;
+  font-weight: 700;
+  color: #000000;
+  text-align: center;
+  background-color: transparent;
+  transition: all 0.2s ease;
+  line-height: 1.3;
+}
+
+.title-page-input:focus {
   outline: none;
 }
 
-.chatbot-send-button i {
+.title-page-input::placeholder {
+  color: #cccccc;
+}
+
+/* Table of Contents */
+.kindle-toc-page {
+  padding: 60px 50px;
+}
+
+.toc-content {
+  flex: 1;
+}
+
+.toc-title {
+  font-family: "DM Sans", sans-serif;
+  font-size: 32px;
+  font-weight: 700;
+  color: #000000;
+  margin-bottom: 40px;
+  text-align: center;
+}
+
+.toc-entries {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.toc-entry {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.toc-entry:hover {
+  background-color: #f9f9f9;
+  padding-left: 8px;
+  padding-right: 8px;
+  margin-left: -8px;
+  margin-right: -8px;
+  border-radius: 4px;
+}
+
+.toc-entry-title {
+  font-family: "DM Sans", sans-serif;
+  font-size: 16px;
+  color: #333333;
+  flex: 1;
+}
+
+.toc-entry-page {
+  font-family: "DM Sans", sans-serif;
+  font-size: 14px;
+  color: #999999;
+  font-weight: 500;
+}
+
+/* Chapter Title Page */
+.kindle-chapter-title-page {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 60px 50px;
+  text-align: center;
+}
+
+.chapter-title-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.chapter-title-number {
+  font-family: "DM Sans", sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: #999999;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin-bottom: 20px;
+}
+
+.chapter-title-text {
+  font-family: "DM Sans", sans-serif;
+  font-size: 36px;
+  font-weight: 700;
+  color: #000000;
+  line-height: 1.3;
+  margin: 0 0 24px 0;
+}
+
+.chapter-description {
+  font-family: "DM Sans", sans-serif;
+  font-size: 18px;
+  color: #666666;
+  line-height: 1.6;
+  max-width: 500px;
+  margin: 0;
+}
+
+/* Chapter Content Page */
+.kindle-content-page {
+  padding: 50px 50px;
+}
+
+.chapter-header {
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.chapter-header-title {
+  font-family: "DM Sans", sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: #000000;
+  margin: 0;
+}
+
+.page-body {
+  flex: 1;
+}
+
+.chapter-content {
+  font-family: "DM Sans", sans-serif;
+  font-size: 18px;
+  line-height: 1.8;
+  color: #333333;
+}
+
+.chapter-paragraph {
+  margin: 0 0 20px 0;
+  text-align: justify;
+  text-indent: 0;
+}
+
+.chapter-paragraph:last-child {
+  margin-bottom: 0;
+}
+
+.chapter-empty {
+  padding: 60px 20px;
+  text-align: center;
+  color: #999999;
+  font-style: italic;
+  font-size: 16px;
+}
+
+/* Page Footer */
+.page-footer {
+  position: absolute;
+  bottom: 20px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  padding: 0 50px;
+}
+
+.page-num {
+  font-family: "DM Sans", sans-serif;
   font-size: 12px;
+  color: #999999;
+  font-weight: 500;
+}
+
+.book-cover-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 48px;
+  padding-bottom: 48px;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.cover-upload-area {
+  width: 100%;
+  max-width: 400px;
+}
+
+.cover-image-container {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 2/3;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.cover-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cover-change-button {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-family: "DM Sans", sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cover-change-button:hover {
+  background-color: rgba(0, 0, 0, 0.9);
+}
+
+.cover-upload-placeholder {
+  width: 100%;
+  aspect-ratio: 2/3;
+  border: 2px dashed #cccccc;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background-color: #f5f5f5;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cover-upload-placeholder:hover {
+  border-color: #0066cc;
+  background-color: #f0f7ff;
+}
+
+.cover-upload-placeholder i {
+  font-size: 48px;
+  color: #999999;
+}
+
+.cover-upload-placeholder p {
+  font-family: "DM Sans", sans-serif;
+  font-size: 16px;
+  color: #666666;
+  margin: 0;
+}
+
+.uploading-text {
+  font-size: 14px;
+  color: #0066cc;
+}
+
+.book-title-section {
+  width: 100%;
+  max-width: 600px;
+}
+
+.book-title-input {
+  width: 100%;
+  padding: 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-family: "DM Sans", sans-serif;
+  font-size: 24px;
+  font-weight: 600;
+  color: #000000;
+  text-align: center;
+  background-color: #ffffff;
+  transition: all 0.2s ease;
+}
+
+.book-title-input:focus {
+  outline: none;
+  border-color: #0066cc;
+  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+}
+
+.book-content {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.book-page {
+  background-color: #ffffff;
+  border-radius: 8px;
+  padding: 40px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  page-break-after: always;
+}
+
+.page-header {
+  border-bottom: 1px solid #e0e0e0;
+  padding-bottom: 16px;
+  margin-bottom: 24px;
+}
+
+.page-number {
+  font-family: "DM Sans", sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: #999999;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.chapter-title {
+  font-family: "DM Sans", sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: #000000;
+  line-height: 1.4;
+}
+
+.page-content {
+  font-family: "DM Sans", sans-serif;
+  font-size: 16px;
+  line-height: 1.8;
+  color: #333333;
+}
+
+.chapter-text {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.chapter-text p {
+  margin: 0 0 16px 0;
+}
+
+.chapter-text p:last-child {
+  margin-bottom: 0;
+}
+
+.chapter-empty {
+  padding: 40px;
+  text-align: center;
+  color: #999999;
+  font-style: italic;
+}
+
+.page-break {
+  height: 32px;
+  border-bottom: 1px dashed #e0e0e0;
+  margin: 32px 0;
+}
+
+.empty-chapters {
+  text-align: center;
+  padding: 60px 20px;
+  color: #999999;
+}
+
+.empty-chapters p {
+  font-size: 16px;
+}
+
+.empty-chapters-message {
+  text-align: center;
+  padding: 100px 20px;
+  color: #999999;
+  font-size: 18px;
+  max-width: 600px;
+  margin: 0 auto;
 }

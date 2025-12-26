@@ -232,7 +232,7 @@ function Personalize() {
       } else if (modalStep === "text") {
         const result = await addDoc(collection(db, "personalizations"), {
           userId: user.uid,
-          name: "Text Personalization",
+          name: "Text Context",
           type: "text",
           content: textContent,
           createdAt: serverTimestamp(),
@@ -255,7 +255,7 @@ function Personalize() {
       console.log("Documents refreshed");
     } catch (error) {
       console.error("Error saving personalization:", error);
-      alert(`Failed to save personalization: ${error.message}`);
+      alert(`Failed to save context: ${error.message}`);
     } finally {
       setSaving(false);
     }
@@ -269,9 +269,7 @@ function Personalize() {
   };
 
   const handleDelete = async (docId) => {
-    if (
-      !window.confirm("Are you sure you want to delete this personalization?")
-    ) {
+    if (!window.confirm("Are you sure you want to delete this context item?")) {
       return;
     }
 
@@ -282,7 +280,7 @@ function Personalize() {
       setOpenMenuId(null);
     } catch (error) {
       console.error("Error deleting personalization:", error);
-      alert("Failed to delete personalization. Please try again.");
+      alert("Failed to delete context item. Please try again.");
     }
   };
 
@@ -481,10 +479,10 @@ function Personalize() {
       <main className="main-content">
         <div className="personalize-container">
           <div className="personalize-header">
-            <h1 className="personalize-title">Personalize Your Business</h1>
+            <h1 className="personalize-title">Book Context</h1>
             <p className="personalize-description">
-              Add documents, images, and information about your business to help
-              AI generate personalized applications.
+              Add documents, images, and information about your book to help AI
+              generate chapters.
             </p>
           </div>
 
@@ -496,10 +494,10 @@ function Personalize() {
             ) : documents.length > 0 ? (
               <div className="documents-section">
                 <div className="documents-header">
-                  <h2 className="documents-title">Your Documents</h2>
+                  <h2 className="documents-title">Your Context</h2>
                   <button className="add-button" onClick={handleAddClick}>
                     <i className="far fa-plus"></i>
-                    <span>Add Personalization</span>
+                    <span>Add Context</span>
                   </button>
                 </div>
 
@@ -587,23 +585,23 @@ function Personalize() {
             ) : (
               <div className="empty-state">
                 <p className="empty-state-text">
-                  You haven't added any personalizations yet. Add one to begin
-                  personalizing your business.
+                  You haven't added any context yet. Add one to begin building
+                  your book.
                 </p>
                 <button
                   className="add-button empty-state-button"
                   onClick={handleAddClick}
                 >
                   <i className="far fa-plus"></i>
-                  <span>Add Personalization</span>
+                  <span>Add Context</span>
                 </button>
               </div>
             )
           ) : (
             <div className="login-message">
               <p className="login-message-text">
-                You are not logged in. Please log in to start personalizing your
-                business.
+                You are not logged in. Please log in to start building your
+                book.
               </p>
             </div>
           )}
@@ -619,7 +617,7 @@ function Personalize() {
 
             {modalStep === "type" && (
               <div className="modal-type-selection">
-                <h2 className="modal-title">Add Personalization</h2>
+                <h2 className="modal-title">Add Context</h2>
                 <p className="modal-subtitle">Choose how you want to add</p>
                 <div className="type-options">
                   <button
@@ -650,7 +648,7 @@ function Personalize() {
                   onDrop={handleDrop}
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  <i className="far fa-cloud-arrow-up"></i>
+                  <i className="fa fa-cloud-arrow-up"></i>
                   <p>Drag files here or click to select</p>
                   <p className="file-drop-hint">
                     You can select multiple files
@@ -705,7 +703,7 @@ function Personalize() {
                 <h2 className="modal-title">Add Text</h2>
                 <textarea
                   className="modal-textarea"
-                  placeholder="Enter your text personalization here..."
+                  placeholder="Enter your book context here..."
                   value={textContent}
                   onChange={(e) => setTextContent(e.target.value)}
                   rows={10}
@@ -768,7 +766,7 @@ function Personalize() {
                       }}
                     >
                       <i
-                        className="far fa-spinner fa-spin"
+                        className="fa fa-spinner fa-spin"
                         style={{
                           fontSize: "48px",
                           color: "#0066cc",

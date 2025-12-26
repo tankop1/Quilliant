@@ -23,14 +23,17 @@ function Write() {
   const [newAppName, setNewAppName] = useState("");
   const [saving, setSaving] = useState(false);
   const [openMenuId, setOpenMenuId] = useState(null);
+  const [openChapterMenuId, setOpenChapterMenuId] = useState(null);
   const [showAddQuestionModal, setShowAddQuestionModal] = useState(false);
   const [newQuestionText, setNewQuestionText] = useState("");
+  const [newChapterName, setNewChapterName] = useState("");
+  const [newChapterDescription, setNewChapterDescription] = useState("");
   const [currentAppId, setCurrentAppId] = useState(null);
   const [savingQuestion, setSavingQuestion] = useState(false);
-  const [hasWordMin, setHasWordMin] = useState(false);
-  const [wordMin, setWordMin] = useState("");
-  const [hasWordMax, setHasWordMax] = useState(false);
-  const [wordMax, setWordMax] = useState("");
+  const [hasPageMin, setHasPageMin] = useState(false);
+  const [pageMin, setPageMin] = useState("");
+  const [hasPageMax, setHasPageMax] = useState(false);
+  const [pageMax, setPageMax] = useState("");
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -145,57 +148,119 @@ function Write() {
   };
 
   const handleAddApplication = async () => {
-    if (!newAppName.trim() || !user) return;
+    if ((!newChapterName.trim() && !newChapterDescription.trim()) || !user)
+      return;
 
     setSaving(true);
     try {
-      await addDoc(collection(db, "applications"), {
-        userId: user.uid,
-        name: newAppName.trim(),
-        type: "competition", // Default type
-        createdAt: serverTimestamp(),
-      });
+      // Get or create a single book for the user
+      let bookId = null;
+      if (applications.length > 0) {
+        bookId = applications[0].id;
+      } else {
+        // Create a default book if none exists
+        const bookDoc = await addDoc(collection(db, "applications"), {
+          userId: user.uid,
+          name: "My Book",
+          type: "competition",
+          createdAt: serverTimestamp(),
+        });
+        bookId = bookDoc.id;
+      }
 
-      // Close modal and reset
-      setShowAddModal(false);
-      setNewAppName("");
+      // Now add the chapter to the book
+      const app = applications.find((a) => a.id === bookId) || {
+        questions: [],
+      };
+      const nextOrder = app.questions ? app.questions.length : 0;
+
+      const questionData = {
+        text: newChapterName.trim() || "Untitled Chapter",
+        description: newChapterDescription.trim() || "",
+        order: nextOrder,
+        createdAt: serverTimestamp(),
+      };
+
+      const questionRef = await addDoc(
+        collection(db, "applications", bookId, "questions"),
+        questionData
+      );
 
       // Wait a moment for Firestore to process
       await new Promise((resolve) => setTimeout(resolve, 300));
 
       // Refresh applications
       await fetchApplications();
+
+      // Fetch the updated questions to find the index
+      const questionsQuery = query(
+        collection(db, "applications", bookId, "questions"),
+        orderBy("order", "asc")
+      );
+      const questionsSnapshot = await getDocs(questionsQuery);
+      const questions = [];
+      questionsSnapshot.forEach((qDoc) => {
+        questions.push({ id: qDoc.id, ...qDoc.data() });
+      });
+
+      const questionIndex = questions.findIndex((q) => q.id === questionRef.id);
+
+      // Close modal and reset
+      setShowAddModal(false);
+      setNewAppName("");
+      setNewChapterName("");
+      setNewChapterDescription("");
+
+      // Navigate to the new chapter
+      if (questionIndex !== -1) {
+        navigate(`/write/${bookId}/${questionIndex}`);
+      } else {
+        navigate(`/write/${bookId}/${questions.length - 1}`);
+      }
     } catch (error) {
-      console.error("Error creating application:", error);
-      alert(`Failed to create application: ${error.message}`);
+      console.error("Error creating chapter:", error);
+      alert(`Failed to create chapter: ${error.message}`);
     } finally {
       setSaving(false);
     }
   };
 
   const handleAddClick = () => {
+    // If no book exists, we need to create one first, but for now just show the chapter modal
+    // The handleAddApplication will handle creating a book if needed
     setShowAddModal(true);
     setNewAppName("");
+    setNewChapterName("");
+    setNewChapterDescription("");
   };
 
   const closeAddModal = () => {
     setShowAddModal(false);
     setNewAppName("");
+    setNewChapterName("");
+    setNewChapterDescription("");
   };
 
   const handleAddQuestionClick = (appId, e) => {
     e.stopPropagation();
     setCurrentAppId(appId);
     setNewQuestionText("");
-    setHasWordMin(false);
-    setWordMin("");
-    setHasWordMax(false);
-    setWordMax("");
+    setNewChapterName("");
+    setNewChapterDescription("");
+    setHasPageMin(false);
+    setPageMin("");
+    setHasPageMax(false);
+    setPageMax("");
     setShowAddQuestionModal(true);
   };
 
   const handleAddQuestion = async () => {
-    if (!newQuestionText.trim() || !currentAppId || savingQuestion) return;
+    if (
+      (!newChapterName.trim() && !newChapterDescription.trim()) ||
+      !currentAppId ||
+      savingQuestion
+    )
+      return;
 
     setSavingQuestion(true);
     try {
@@ -205,17 +270,18 @@ function Write() {
 
       // Prepare question data
       const questionData = {
-        text: newQuestionText.trim(),
+        text: newChapterName.trim() || "Untitled Chapter",
+        description: newChapterDescription.trim() || "",
         order: nextOrder,
         createdAt: serverTimestamp(),
       };
 
-      // Add word constraints if specified
-      if (hasWordMin && wordMin.trim()) {
-        questionData.wordMin = parseInt(wordMin.trim());
+      // Add page constraints if specified
+      if (hasPageMin && pageMin.trim()) {
+        questionData.pageMin = parseInt(pageMin.trim());
       }
-      if (hasWordMax && wordMax.trim()) {
-        questionData.wordMax = parseInt(wordMax.trim());
+      if (hasPageMax && pageMax.trim()) {
+        questionData.pageMax = parseInt(pageMax.trim());
       }
 
       // Add the question to Firestore
@@ -255,14 +321,16 @@ function Write() {
       // Close modal and reset form
       setShowAddQuestionModal(false);
       setNewQuestionText("");
-      setHasWordMin(false);
-      setWordMin("");
-      setHasWordMax(false);
-      setWordMax("");
+      setNewChapterName("");
+      setNewChapterDescription("");
+      setHasPageMin(false);
+      setPageMin("");
+      setHasPageMax(false);
+      setPageMax("");
       setCurrentAppId(null);
     } catch (error) {
       console.error("Error creating question:", error);
-      alert(`Failed to create question: ${error.message}`);
+      alert(`Failed to create chapter: ${error.message}`);
     } finally {
       setSavingQuestion(false);
     }
@@ -271,17 +339,19 @@ function Write() {
   const closeAddQuestionModal = () => {
     setShowAddQuestionModal(false);
     setNewQuestionText("");
-    setHasWordMin(false);
-    setWordMin("");
-    setHasWordMax(false);
-    setWordMax("");
+    setNewChapterName("");
+    setNewChapterDescription("");
+    setHasPageMin(false);
+    setPageMin("");
+    setHasPageMax(false);
+    setPageMax("");
     setCurrentAppId(null);
   };
 
   const handleDelete = async (appId) => {
     if (
       !window.confirm(
-        "Are you sure you want to delete this application? This will also delete all associated questions."
+        "Are you sure you want to delete this book? This will also delete all associated chapters."
       )
     ) {
       return;
@@ -294,7 +364,7 @@ function Write() {
       setOpenMenuId(null);
     } catch (error) {
       console.error("Error deleting application:", error);
-      alert("Failed to delete application. Please try again.");
+      alert("Failed to delete book. Please try again.");
     }
   };
 
@@ -303,35 +373,57 @@ function Write() {
     setOpenMenuId(openMenuId === appId ? null : appId);
   };
 
+  const handleChapterMenuToggle = (chapterId, e) => {
+    e.stopPropagation();
+    setOpenChapterMenuId(openChapterMenuId === chapterId ? null : chapterId);
+  };
+
+  const handleDeleteChapter = async (chapterId, appId) => {
+    if (!window.confirm("Are you sure you want to delete this chapter?")) {
+      return;
+    }
+
+    try {
+      await deleteDoc(doc(db, "applications", appId, "questions", chapterId));
+      // Refresh applications
+      await fetchApplications();
+      setOpenChapterMenuId(null);
+    } catch (error) {
+      console.error("Error deleting chapter:", error);
+      alert("Failed to delete chapter. Please try again.");
+    }
+  };
+
   // Close menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
         !event.target.closest(".dropdown-menu") &&
-        !event.target.closest(".application-actions")
+        !event.target.closest(".application-actions") &&
+        !event.target.closest(".question-actions")
       ) {
         setOpenMenuId(null);
+        setOpenChapterMenuId(null);
       }
     };
 
-    if (openMenuId) {
+    if (openMenuId || openChapterMenuId) {
       document.addEventListener("mousedown", handleClickOutside);
     }
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [openMenuId]);
+  }, [openMenuId, openChapterMenuId]);
 
   return (
     <div className="write-page">
       <main className="main-content">
         <div className="write-container">
           <div className="write-header">
-            <h1 className="write-title">Your Applications</h1>
+            <h1 className="write-title">Your Chapters</h1>
             <p className="write-description">
-              Manage and work on applications for pitch competitions,
-              incubators, and accelerators.
+              Manage and work on your book chapters.
             </p>
           </div>
 
@@ -340,135 +432,125 @@ function Write() {
               <div className="loading-message">
                 <p>Loading...</p>
               </div>
-            ) : applications.length > 0 ? (
-              <div className="applications-section">
-                <div className="applications-header">
-                  <h2 className="applications-title">Application Library</h2>
-                  <button className="add-button" onClick={handleAddClick}>
-                    <i className="far fa-plus"></i>
-                    <span>New Application</span>
-                  </button>
-                </div>
+            ) : (
+              (() => {
+                // Flatten all chapters from all books into a single list
+                const allChapters = [];
+                let globalIndex = 0;
+                applications.forEach((app) => {
+                  if (app.questions && app.questions.length > 0) {
+                    app.questions.forEach((question, localIndex) => {
+                      allChapters.push({
+                        ...question,
+                        appId: app.id,
+                        globalIndex: globalIndex++,
+                        localIndex: localIndex,
+                      });
+                    });
+                  }
+                });
 
-                <div className="applications-list">
-                  {applications.map((app) => (
-                    <div key={app.id} className="application-wrapper">
-                      <div
-                        className="application-item"
-                        onClick={() =>
-                          setExpandedApp(expandedApp === app.id ? null : app.id)
-                        }
-                      >
-                        <div className="application-icon">
-                          <i className={getApplicationIcon(app.type)}></i>
-                        </div>
-                        <div className="application-info">
-                          <div className="application-name">{app.name}</div>
-                          <div className="application-question">
-                            {app.questions && app.questions.length > 0
-                              ? app.questions[0].text
-                              : "No questions yet"}
-                          </div>
-                          <div className="application-date">
-                            {formatDate(app.createdAt)}
-                          </div>
-                        </div>
-                        <div className="application-expand">
-                          <i
-                            className={`fa fa-chevron-${
-                              expandedApp === app.id ? "up" : "down"
-                            }`}
-                          ></i>
-                        </div>
-                        <div className="application-actions-wrapper">
-                          <button
-                            className="application-actions"
-                            onClick={(e) => handleMenuToggle(app.id, e)}
-                          >
-                            <i className="fa fa-ellipsis-vertical"></i>
-                          </button>
-                          {openMenuId === app.id && (
-                            <div className="dropdown-menu">
-                              <button
-                                className="dropdown-item delete"
-                                onClick={() => handleDelete(app.id)}
-                              >
-                                <i className="far fa-trash-can"></i>
-                                <span>Delete</span>
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                if (allChapters.length > 0 || applications.length > 0) {
+                  return (
+                    <div className="applications-section">
+                      <div className="applications-header">
+                        <h2 className="applications-title">Chapters</h2>
+                        <button
+                          className="add-button"
+                          onClick={() => {
+                            // Use the first book, or create one if none exists
+                            if (applications.length > 0) {
+                              handleAddQuestionClick(applications[0].id, {
+                                stopPropagation: () => {},
+                              });
+                            } else {
+                              // Need to create a book first, then add chapter
+                              handleAddClick();
+                            }
+                          }}
+                        >
+                          <i className="far fa-plus"></i>
+                          <span>New Chapter</span>
+                        </button>
                       </div>
-                      {expandedApp === app.id && (
-                        <div className="questions-section">
-                          <div className="questions-header">
-                            <h3 className="questions-title">Questions</h3>
-                            <button
-                              className="add-question-button"
-                              onClick={(e) => handleAddQuestionClick(app.id, e)}
+
+                      <div className="questions-list">
+                        {allChapters.length > 0 ? (
+                          allChapters.map((chapter) => (
+                            <div
+                              key={chapter.id || chapter.globalIndex}
+                              className="question-item"
+                              onClick={() =>
+                                navigate(
+                                  `/write/${chapter.appId}/${chapter.localIndex}`
+                                )
+                              }
                             >
-                              <i className="far fa-plus"></i>
-                              <span>Add Question</span>
-                            </button>
-                          </div>
-                          <div className="questions-list">
-                            {app.questions && app.questions.length > 0 ? (
-                              app.questions.map((question, index) => (
-                                <div
-                                  key={question.id || index}
-                                  className="question-item"
-                                  onClick={() =>
-                                    navigate(`/write/${app.id}/${index}`)
+                              <div className="question-number">
+                                {chapter.globalIndex + 1}
+                              </div>
+                              <div className="question-text">
+                                {chapter.text}
+                              </div>
+                              <div className="question-actions-wrapper">
+                                <button
+                                  className="question-actions"
+                                  onClick={(e) =>
+                                    handleChapterMenuToggle(chapter.id, e)
                                   }
                                 >
-                                  <div className="question-number">
-                                    {index + 1}
+                                  <i className="fa fa-ellipsis-vertical"></i>
+                                </button>
+                                {openChapterMenuId === chapter.id && (
+                                  <div className="dropdown-menu">
+                                    <button
+                                      className="dropdown-item delete"
+                                      onClick={() =>
+                                        handleDeleteChapter(
+                                          chapter.id,
+                                          chapter.appId
+                                        )
+                                      }
+                                    >
+                                      <i className="far fa-trash-can"></i>
+                                      <span>Delete</span>
+                                    </button>
                                   </div>
-                                  <div className="question-text">
-                                    {question.text}
-                                  </div>
-                                  <button
-                                    className="question-actions"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                    }}
-                                  >
-                                    <i className="fa fa-ellipsis-vertical"></i>
-                                  </button>
-                                </div>
-                              ))
-                            ) : (
-                              <div className="empty-questions">
-                                <p>No questions yet. Add one to get started.</p>
+                                )}
                               </div>
-                            )}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="empty-questions">
+                            <p>No chapters yet. Add one to get started.</p>
                           </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="empty-state">
-                <p className="empty-state-text">
-                  You haven't created any applications yet. Create one to begin
-                  working on your applications.
-                </p>
-                <button
-                  className="add-button empty-state-button"
-                  onClick={handleAddClick}
-                >
-                  <i className="far fa-plus"></i>
-                  <span>New Application</span>
-                </button>
-              </div>
+                  );
+                } else {
+                  return (
+                    <div className="empty-state">
+                      <p className="empty-state-text">
+                        You haven't created any chapters yet. Add your first
+                        chapter to begin writing your book.
+                      </p>
+                      <button
+                        className="add-button empty-state-button"
+                        onClick={handleAddClick}
+                      >
+                        <i className="far fa-plus"></i>
+                        <span>New Chapter</span>
+                      </button>
+                    </div>
+                  );
+                }
+              })()
             )
           ) : (
             <div className="login-message">
               <p className="login-message-text">
-                Please log in to view or create any applications.
+                Please log in to view or create any chapters.
               </p>
             </div>
           )}
@@ -484,20 +566,41 @@ function Write() {
             <button className="modal-close" onClick={closeAddModal}>
               <i className="fa fa-times"></i>
             </button>
-            <h2 className="modal-title">New Application</h2>
-            <p className="modal-subtitle">Enter a name for your application</p>
+            <h2 className="modal-title">New Chapter</h2>
+            <p className="modal-subtitle">
+              Enter a name and description for your chapter
+            </p>
             <input
               type="text"
               className="modal-input"
-              placeholder="Application name"
-              value={newAppName}
-              onChange={(e) => setNewAppName(e.target.value)}
+              placeholder="Chapter name"
+              value={newChapterName}
+              onChange={(e) => setNewChapterName(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && newAppName.trim() && !saving) {
-                  handleAddApplication();
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  document.querySelector(".modal-textarea")?.focus();
                 }
               }}
               autoFocus
+            />
+            <textarea
+              className="modal-textarea"
+              placeholder="Chapter description (what should this chapter be about?)"
+              value={newChapterDescription}
+              onChange={(e) => setNewChapterDescription(e.target.value)}
+              onKeyDown={(e) => {
+                if (
+                  e.key === "Enter" &&
+                  e.ctrlKey &&
+                  (newChapterName.trim() || newChapterDescription.trim()) &&
+                  !saving
+                ) {
+                  e.preventDefault();
+                  handleAddApplication();
+                }
+              }}
+              rows={4}
             />
             <div className="modal-actions">
               <button
@@ -510,9 +613,12 @@ function Write() {
               <button
                 className="modal-button-primary"
                 onClick={handleAddApplication}
-                disabled={!newAppName.trim() || saving}
+                disabled={
+                  (!newChapterName.trim() && !newChapterDescription.trim()) ||
+                  saving
+                }
               >
-                {saving ? "Creating..." : "Create"}
+                {saving ? "Creating..." : "Create Chapter"}
               </button>
             </div>
           </div>
@@ -528,18 +634,36 @@ function Write() {
             <button className="modal-close" onClick={closeAddQuestionModal}>
               <i className="fa fa-times"></i>
             </button>
-            <h2 className="modal-title">New Question</h2>
-            <p className="modal-subtitle">Enter the question text</p>
+            <h2 className="modal-title">New Chapter</h2>
+            <p className="modal-subtitle">
+              Enter a name and description for your chapter
+            </p>
+            <input
+              type="text"
+              className="modal-input"
+              placeholder="Chapter name"
+              value={newChapterName}
+              onChange={(e) => setNewChapterName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  document
+                    .querySelector(".add-question-modal .modal-textarea")
+                    ?.focus();
+                }
+              }}
+              autoFocus
+            />
             <textarea
               className="modal-textarea"
-              placeholder="What is your question?"
-              value={newQuestionText}
-              onChange={(e) => setNewQuestionText(e.target.value)}
+              placeholder="Chapter description (what should this chapter be about?)"
+              value={newChapterDescription}
+              onChange={(e) => setNewChapterDescription(e.target.value)}
               onKeyDown={(e) => {
                 if (
                   e.key === "Enter" &&
                   e.ctrlKey &&
-                  newQuestionText.trim() &&
+                  (newChapterName.trim() || newChapterDescription.trim()) &&
                   !savingQuestion
                 ) {
                   e.preventDefault();
@@ -547,7 +671,6 @@ function Write() {
                 }
               }}
               rows={4}
-              autoFocus
             />
 
             <div className="word-constraints-section">
@@ -555,18 +678,18 @@ function Write() {
                 <label className="checkbox-label">
                   <input
                     type="checkbox"
-                    checked={hasWordMin}
-                    onChange={(e) => setHasWordMin(e.target.checked)}
+                    checked={hasPageMin}
+                    onChange={(e) => setHasPageMin(e.target.checked)}
                   />
-                  <span>Word Minimum</span>
+                  <span>Page Minimum</span>
                 </label>
-                {hasWordMin && (
+                {hasPageMin && (
                   <input
                     type="number"
                     className="word-constraint-input"
-                    placeholder="Min words"
-                    value={wordMin}
-                    onChange={(e) => setWordMin(e.target.value)}
+                    placeholder="Min pages"
+                    value={pageMin}
+                    onChange={(e) => setPageMin(e.target.value)}
                     min="1"
                   />
                 )}
@@ -576,18 +699,18 @@ function Write() {
                 <label className="checkbox-label">
                   <input
                     type="checkbox"
-                    checked={hasWordMax}
-                    onChange={(e) => setHasWordMax(e.target.checked)}
+                    checked={hasPageMax}
+                    onChange={(e) => setHasPageMax(e.target.checked)}
                   />
-                  <span>Word Maximum</span>
+                  <span>Page Maximum</span>
                 </label>
-                {hasWordMax && (
+                {hasPageMax && (
                   <input
                     type="number"
                     className="word-constraint-input"
-                    placeholder="Max words"
-                    value={wordMax}
-                    onChange={(e) => setWordMax(e.target.value)}
+                    placeholder="Max pages"
+                    value={pageMax}
+                    onChange={(e) => setPageMax(e.target.value)}
                     min="1"
                   />
                 )}
@@ -605,9 +728,12 @@ function Write() {
               <button
                 className="modal-button-primary"
                 onClick={handleAddQuestion}
-                disabled={!newQuestionText.trim() || savingQuestion}
+                disabled={
+                  (!newChapterName.trim() && !newChapterDescription.trim()) ||
+                  savingQuestion
+                }
               >
-                {savingQuestion ? "Adding..." : "Add Question"}
+                {savingQuestion ? "Adding..." : "Add Chapter"}
               </button>
             </div>
           </div>

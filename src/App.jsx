@@ -4,6 +4,7 @@ import Layout from "./components/Layout";
 import Personalize from "./pages/Personalize";
 import Write from "./pages/Write";
 import Question from "./pages/Question";
+import Preview from "./pages/Preview";
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
           <Route path="personalize" element={<Personalize />} />
           <Route path="write" element={<Write />} />
           <Route path="write/:appId/:questionIndex" element={<Question />} />
+          <Route path="preview" element={<Preview />} />
         </Route>
       </Routes>
     </BrowserRouter>
